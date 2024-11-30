@@ -6,6 +6,7 @@ import { LoginInput } from './dto/login.input';
 import { OTPActions } from 'src/otp/otp.entity';
 import { OtpService } from 'src/otp/otp.service';
 import { VerifyEmailInput } from './dto/verify-email.input';
+import { FEATURE_FLAGS } from 'src/utils/feature-flags';
 
 @Injectable()
 export class AuthService {
@@ -35,11 +36,13 @@ export class AuthService {
   async signUp(user: RegisterInput) {
     const newUser = await this.usersService.create(user);
 
-    this.otpService.sendOTPToMail(
-      OTPActions.VERIFY_EMAIL,
-      newUser,
-      'OTP: Verify Email',
-    );
+    if (FEATURE_FLAGS.VERIFY_EMAIL_ON_SIGN_UP) {
+      this.otpService.sendOTPToMail(
+        OTPActions.VERIFY_EMAIL,
+        newUser,
+        'OTP: Verify Email',
+      );
+    }
 
     return newUser;
   }
