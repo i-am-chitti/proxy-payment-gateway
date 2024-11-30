@@ -95,7 +95,7 @@ export class UsersService {
   async getApiKey(user: User): Promise<string> {
     if (!user.apiKey) {
       throw new HttpException(
-        'API key not found. Please generate a new one.',
+        'API key not found. Please generate one first.',
         HttpStatus.NOT_FOUND,
       );
     }
