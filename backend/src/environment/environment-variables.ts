@@ -42,6 +42,9 @@ export class EnvironmentVariables {
   @IsString()
   RAZORPAY_KEY_ID: string = '';
   RAZORPAY_KEY_SECRET: string = '';
+
+  @IsString()
+  JWT_SECRET: string = '';
 }
 
 export const validate = (config: Record<string, unknown>) => {
