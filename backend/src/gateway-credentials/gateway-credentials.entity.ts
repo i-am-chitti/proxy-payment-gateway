@@ -5,7 +5,7 @@ import {
   OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { secretTransformer } from './utils';
+import { secretTransformer } from './gateway-credentials.util';
 import { User } from 'src/users/user.entity';
 
 @Entity('gateway-credentials')
