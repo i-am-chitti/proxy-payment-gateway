@@ -13,10 +13,14 @@ import { CreateOrderInput } from 'src/payment/dto/create-order.input';
 import { RazorpayCallbackInput } from 'src/payment/dto/razorpay-callback.input';
 import { ValidateOrderInput } from 'src/payment/dto/validate-order.input';
 import { PaymentService } from 'src/payment/payment.service';
+import { RazorpayService } from './razorpay.service';
 
 @Controller('payment')
 export class PaymentController {
-  constructor(private paymentService: PaymentService) {}
+  constructor(
+    private paymentService: PaymentService,
+    private readonly razorpayService: RazorpayService,
+  ) {}
 
   @Public()
   @Post('order/validate')
@@ -25,6 +29,7 @@ export class PaymentController {
       orderId: paymentDto.order_id,
       apiKey: paymentDto.api_key,
     });
+
     return {
       data: {
         success: isValid,
@@ -40,6 +45,18 @@ export class PaymentController {
     return {
       data: order,
       message: ['Order created successfully'],
+    };
+  }
+
+  @Public()
+  @Post('upi')
+  async generateUPIQRCode(@Body() orderDto: CreateOrderInput) {
+    const order = await this.paymentService.createOrder(orderDto);
+    const qrData = await this.paymentService.generateUPIQRCode(order);
+
+    return {
+      data: qrData,
+      message: ['QR Code generated successfully'],
     };
   }
 
@@ -60,7 +77,7 @@ export class PaymentController {
   @Public()
   @Post('razorpay/handler')
   async razorpayCallback(@Body() razorpayCallbackInput: RazorpayCallbackInput) {
-    return this.paymentService.razorypayCallbackHandler(razorpayCallbackInput);
+    return this.razorpayService.callbackHandler(razorpayCallbackInput);
   }
 
   @Public()

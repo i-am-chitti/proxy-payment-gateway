@@ -8,5 +8,6 @@ import { GatewayCredentials } from './gateway-credentials.entity';
   imports: [TypeOrmModule.forFeature([GatewayCredentials])],
   controllers: [GatewayCredentialsController],
   providers: [GatewayCredentialsService],
+  exports: [GatewayCredentialsService],
 })
 export class GatewayCredentialsModule {}

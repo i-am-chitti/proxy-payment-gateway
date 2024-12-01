@@ -1,10 +1,8 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Razorpay from 'razorpay';
-import { validatePaymentVerification } from 'razorpay/dist/utils/razorpay-utils';
 import { EnvironmentService } from 'src/environment/environment.service';
 import { CreateOrderInput } from 'src/payment/dto/create-order.input';
-import { RazorpayCallbackInput } from 'src/payment/dto/razorpay-callback.input';
 import { Order, OrderStatus } from 'src/payment/order.entity';
 import { User } from 'src/users/user.entity';
 import { Repository } from 'typeorm';
@@ -12,21 +10,26 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { downloadFile } from 'src/payment/utils';
 import { addMinutes, getUnixTime } from 'date-fns';
+import { GatewayCredentialsService } from 'src/gateway-credentials/gateway-credentials.service';
+import { GATEWAYS } from 'src/gateway-credentials/constants';
+import { RazorpayService } from './razorpay.service';
 
 @Injectable()
 export class PaymentService {
   constructor(
-    @InjectRepository(User) private readonly userRespository: Repository<User>,
+    @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     @Inject('RAZORPAY') private readonly razorpay: Razorpay,
     private readonly environmentService: EnvironmentService,
+    private readonly gatewayCredentialsService: GatewayCredentialsService,
+    private readonly razorpayService: RazorpayService,
   ) {}
 
   async createOrder(order: CreateOrderInput) {
     const apiKey = order.api_key;
 
-    const user = await this.userRespository.findOne({
+    const user = await this.userRepository.findOne({
       where: { apiKey },
     });
 
@@ -36,16 +39,21 @@ export class PaymentService {
 
     const existingOrder = await this.orderRepository.findOne({
       where: { orderId: order.order_id },
+      relations: ['user'],
     });
 
     if (existingOrder) {
       return existingOrder;
     }
+
+    const gateway = await this.getUPIGateway(user);
+
     const orderObj = {
       amount: order.amount,
       orderId: order.order_id,
       redirectUrl: order.redirect_url,
       user: user,
+      gateway,
     };
 
     const newOrder = this.orderRepository.create(orderObj);
@@ -57,7 +65,7 @@ export class PaymentService {
   async validateOrder(order: { orderId: string; apiKey: string }) {
     const apiKey = order.apiKey;
 
-    const user = await this.userRespository.findOne({
+    const user = await this.userRepository.findOne({
       where: { apiKey },
     });
 
@@ -75,48 +83,16 @@ export class PaymentService {
     return true;
   }
 
-  /**
-   * Pending
-   */
-  async razorypayCallbackHandler(razorypayCallback: RazorpayCallbackInput) {
-    const {
-      razorpay_order_id: orderId,
-      razorpay_payment_id: paymentId,
-      razorpay_signature: signature,
-    } = razorypayCallback;
-
-    const order = await this.orderRepository.findOne({
-      where: { orderId },
-    });
-
-    if (!order) {
-      throw new HttpException('Order not found', HttpStatus.NOT_FOUND);
+  async generateUPIQRCode(order: Order) {
+    const qrData = {};
+    switch (order.gateway) {
+      case GATEWAYS.RAZORPAY.id: {
+        qrData['imageUrl'] = await this.razorpayService.generateQRCode(order);
+        break;
+      }
     }
 
-    const secret = this.environmentService.get('RAZORPAY_KEY_SECRET');
-    const isValid = validatePaymentVerification(
-      {
-        order_id: orderId,
-        payment_id: paymentId,
-      },
-      signature,
-      secret,
-    );
-
-    if (!isValid) {
-      throw new HttpException('Invalid signature', HttpStatus.UNAUTHORIZED);
-    }
-
-    // get payment detail.
-    console.log(await this.razorpay.payments.fetch(paymentId));
-    /**
-     * LEFT Here
-     * Fetch payment details, then save it in transaction table.
-     */
-    // order.paymentId = payment_id;
-    order.status = OrderStatus.SUCCESS;
-    await this.orderRepository.save(order);
-    return true;
+    return qrData;
   }
 
   async generateQRCode(order: Order) {
@@ -220,5 +196,37 @@ export class PaymentService {
       },
       message: ['Payment successful'],
     };
+  }
+
+  async getUPIGateway(user: User) {
+    const gatewayCredentials =
+      await this.gatewayCredentialsService.findOneByUserId({
+        userId: user.id,
+      });
+
+    if (!gatewayCredentials) {
+      throw new HttpException(
+        'Gateway credentials not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const gateways = Object.keys(GATEWAYS);
+    const enabledGateways = gateways.filter((gateway) => {
+      return gatewayCredentials[GATEWAYS[gateway].credentials.enabled];
+    });
+
+    if (!enabledGateways.length) {
+      throw new HttpException(
+        'No payment gateway enabled',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Return random gateway
+    const randomGateway =
+      enabledGateways[Math.floor(Math.random() * enabledGateways.length)];
+
+    return randomGateway;
   }
 }

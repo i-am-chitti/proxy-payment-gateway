@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { GatewayCredentials } from './gateway-credentials.entity';
 import { Repository } from 'typeorm';
 import { CredentialUpdate } from './dto/credential-update.input';
+import { GATEWAYS } from './constants';
 
 @Injectable()
 export class GatewayCredentialsService {
@@ -47,12 +48,44 @@ export class GatewayCredentialsService {
         phonepeMerchantSecret: updateDto?.phonepe_merchant_secret ?? null,
         stripePublishableKey: updateDto?.stripe_publishable_key ?? null,
         stripeSecretKey: updateDto?.stripe_secret_key ?? null,
+        isRazorpayEnabled: updateDto?.is_razorpay_enabled ?? false,
+        isPhonepeEnabled: updateDto?.is_phonepe_enabled ?? false,
+        isStripeEnabled: updateDto?.is_stripe_enabled ?? false,
       },
       ['user'], // The conflict path; ensure 'user' is unique or a primary key in the table
     );
 
     return {
       message: 'Gateway credentials updated or inserted successfully',
+    };
+  }
+
+  async getGatewayCredentials({
+    userId,
+    gateway,
+  }: {
+    userId: string;
+    gateway: string;
+  }) {
+    if (!Object.keys(GATEWAYS).includes(gateway)) {
+      return {
+        message: 'Gateway not found',
+      };
+    }
+
+    const credentialKeys = GATEWAYS[gateway].credentials;
+
+    const credentials = await this.findOneByUserId({ userId });
+
+    if (!credentials) {
+      return {
+        message: 'Gateway credentials not found',
+      };
+    }
+
+    return {
+      key: credentials[credentialKeys.id],
+      secret: credentials[credentialKeys.secret],
     };
   }
 }
