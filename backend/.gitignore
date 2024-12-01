@@ -41,3 +41,4 @@ sqlite.db
 .env
 
 public/qrcode
+public/razorpay/qrcode

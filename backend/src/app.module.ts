@@ -12,6 +12,7 @@ import { OtpModule } from 'src/otp/otp.module';
 import { PaymentModule } from './payment/payment.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
+import { GatewayCredentialsModule } from './gateway-credentials/gateway-credentials.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { join } from 'path';
     OtpModule,
     UsersModule,
     PaymentModule,
+    GatewayCredentialsModule,
   ],
   controllers: [AppController],
   providers: [AppService, EnvironmentService],

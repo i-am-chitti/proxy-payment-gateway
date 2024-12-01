@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as https from 'https';
+import { GATEWAYS } from 'src/gateway-credentials/constants';
 
 // Function to download the file and save it
 const downloadFile = (url, dest) => {
@@ -26,5 +27,10 @@ const downloadFile = (url, dest) => {
     });
   });
 };
+const getPaymentGateway = () => {
+  const gateways = Object.keys(GATEWAYS);
 
-export { downloadFile };
+  return gateways[Math.floor(Math.random() * gateways.length)];
+};
+
+export { downloadFile, getPaymentGateway };
