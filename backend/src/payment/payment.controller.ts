@@ -61,20 +61,6 @@ export class PaymentController {
   }
 
   @Public()
-  @Post('qrcode')
-  async generateQRCode(@Body() orderDto: CreateOrderInput) {
-    const order = await this.paymentService.createOrder(orderDto);
-    const imageUrl = await this.paymentService.generateQRCode(order);
-
-    return {
-      data: {
-        imageUrl,
-      },
-      message: ['QR Code generated successfully'],
-    };
-  }
-
-  @Public()
   @Post('razorpay/handler')
   async razorpayCallback(@Body() razorpayCallbackInput: RazorpayCallbackInput) {
     return this.razorpayService.callbackHandler(razorpayCallbackInput);

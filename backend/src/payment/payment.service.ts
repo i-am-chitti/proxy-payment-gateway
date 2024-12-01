@@ -1,15 +1,10 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Razorpay from 'razorpay';
-import { EnvironmentService } from 'src/environment/environment.service';
 import { CreateOrderInput } from 'src/payment/dto/create-order.input';
 import { Order, OrderStatus } from 'src/payment/order.entity';
 import { User } from 'src/users/user.entity';
 import { Repository } from 'typeorm';
-import * as path from 'path';
-import * as fs from 'fs';
-import { downloadFile } from 'src/payment/utils';
-import { addMinutes, getUnixTime } from 'date-fns';
 import { GatewayCredentialsService } from 'src/gateway-credentials/gateway-credentials.service';
 import { GATEWAYS } from 'src/gateway-credentials/constants';
 import { RazorpayService } from './razorpay.service';
@@ -21,7 +16,6 @@ export class PaymentService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     @Inject('RAZORPAY') private readonly razorpay: Razorpay,
-    private readonly environmentService: EnvironmentService,
     private readonly gatewayCredentialsService: GatewayCredentialsService,
     private readonly razorpayService: RazorpayService,
   ) {}
@@ -95,62 +89,6 @@ export class PaymentService {
     return qrData;
   }
 
-  async generateQRCode(order: Order) {
-    const qrCodeDirPath = path.join(__dirname, '../..', 'public/qrcode');
-
-    // Make sure the public directory exists
-    if (!fs.existsSync(qrCodeDirPath)) {
-      fs.mkdirSync(qrCodeDirPath, { recursive: true });
-    }
-
-    const fileName = `${order.orderId}.jpeg`;
-    const filePath = path.join(qrCodeDirPath, fileName);
-
-    if (order.qrCodeId) {
-      const qrCode = await this.razorpay.qrCode.fetch(order.qrCodeId);
-      if (qrCode && qrCode.status === 'active') {
-        // Valid QR Code.
-        return `/qrcode/${fileName}`;
-      } else {
-        if (fs.existsSync(filePath)) {
-          console.log(
-            'QR Code is not active. Deleting previous Regenerating...',
-          );
-          fs.unlinkSync(filePath);
-        }
-      }
-    }
-
-    // Create a new QR Code.
-    const qrCode = await this.razorpay.qrCode.create({
-      type: 'upi_qr',
-      usage: 'single_use',
-      name: order.orderId,
-      fixed_amount: true,
-      payment_amount: order.amount * 100, // accepts in paisa
-      description: 'Membership Fee',
-      close_by: getUnixTime(addMinutes(new Date(), 5)),
-    });
-
-    const imageUrl = qrCode?.image_url;
-
-    if (!imageUrl) {
-      throw new HttpException(
-        'QR Code not generated',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-
-    this.orderRepository.update(order.id, {
-      qrCodeId: qrCode.id,
-    });
-
-    // Async call
-    await downloadFile(imageUrl, filePath);
-
-    return `/qrcode/${fileName}`;
-  }
-
   async checkPayment(details: { order_id: string }) {
     const order = await this.orderRepository.findOne({
       where: { orderId: details.order_id },
@@ -169,33 +107,11 @@ export class PaymentService {
       };
     }
 
-    const qrCodeId = order.qrCodeId;
-
-    if (!qrCodeId) {
-      throw new HttpException('QR Code not found', HttpStatus.NOT_FOUND);
+    switch (order.gateway) {
+      case GATEWAYS.RAZORPAY.id: {
+        return this.razorpayService.checkPayment(order);
+      }
     }
-
-    const payments = await this.razorpay.qrCode.fetchAllPayments(qrCodeId);
-
-    if (payments.count === 0) {
-      return {
-        data: {
-          success: false,
-        },
-        message: ['Payment failed'],
-      };
-    }
-
-    // Payment done. Close QR code.
-    await this.razorpay.qrCode.close(qrCodeId);
-
-    return {
-      data: {
-        success: true,
-        txn_id: payments.items[0].id,
-      },
-      message: ['Payment successful'],
-    };
   }
 
   async getUPIGateway(user: User) {

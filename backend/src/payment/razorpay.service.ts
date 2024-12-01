@@ -164,4 +164,36 @@ export class RazorpayService {
     await this.orderRepository.save(order);
     return true;
   }
+
+  async checkPayment(order: Order) {
+    const qrCodeId = order.qrCodeId;
+
+    if (!qrCodeId) {
+      throw new HttpException('QR Code not found', HttpStatus.NOT_FOUND);
+    }
+
+    const razorpay = await this.getRazorpayInstance(order.user);
+
+    const payments = await razorpay.qrCode.fetchAllPayments(qrCodeId);
+
+    if (payments.count === 0) {
+      return {
+        data: {
+          success: false,
+        },
+        message: ['Payment failed'],
+      };
+    }
+
+    // Payment done. Close QR code.
+    await razorpay.qrCode.close(qrCodeId);
+
+    return {
+      data: {
+        success: true,
+        txn_id: payments.items[0].id,
+      },
+      message: ['Payment successful'],
+    };
+  }
 }
