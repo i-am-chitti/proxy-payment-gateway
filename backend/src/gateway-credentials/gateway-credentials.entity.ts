@@ -18,6 +18,11 @@ export class GatewayCredentials {
   user: User;
 
   @Column({
+    default: false,
+  })
+  isRazorpayEnabled: boolean;
+
+  @Column({
     nullable: true,
   })
   razorpayKeyId: string;
@@ -29,6 +34,11 @@ export class GatewayCredentials {
   razorpayKeySecret: string;
 
   @Column({
+    default: false,
+  })
+  isPhonepeEnabled: boolean;
+
+  @Column({
     nullable: true,
   })
   phonepeMerchantId: string;
@@ -38,6 +48,11 @@ export class GatewayCredentials {
     transformer: secretTransformer,
   })
   phonepeMerchantSecret: string;
+
+  @Column({
+    default: false,
+  })
+  isStripeEnabled: boolean;
 
   @Column({
     nullable: true,
