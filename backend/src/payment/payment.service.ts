@@ -1,6 +1,5 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import Razorpay from 'razorpay';
 import { CreateOrderInput } from 'src/payment/dto/create-order.input';
 import { Order, OrderStatus } from 'src/payment/order.entity';
 import { User } from 'src/users/user.entity';
@@ -8,6 +7,7 @@ import { Repository } from 'typeorm';
 import { GatewayCredentialsService } from 'src/gateway-credentials/gateway-credentials.service';
 import { GATEWAYS } from 'src/gateway-credentials/constants';
 import { RazorpayService } from './razorpay.service';
+import { PhonepeService } from './phonepe.service';
 
 @Injectable()
 export class PaymentService {
@@ -15,9 +15,9 @@ export class PaymentService {
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    @Inject('RAZORPAY') private readonly razorpay: Razorpay,
     private readonly gatewayCredentialsService: GatewayCredentialsService,
     private readonly razorpayService: RazorpayService,
+    private readonly phonepeService: PhonepeService,
   ) {}
 
   async createOrder(order: CreateOrderInput) {
@@ -83,6 +83,9 @@ export class PaymentService {
       case GATEWAYS.RAZORPAY.id: {
         qrData['imageUrl'] = await this.razorpayService.generateQRCode(order);
         break;
+      }
+      case GATEWAYS.PHONEPE.id: {
+        qrData['qrString'] = await this.phonepeService.generateQRCode(order);
       }
     }
 
