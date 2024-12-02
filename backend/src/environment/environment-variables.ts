@@ -45,6 +45,9 @@ export class EnvironmentVariables {
 
   @IsString()
   JWT_SECRET: string = '';
+
+  @IsString()
+  CREDENTIAL_SECRET_KEY: string = '';
 }
 
 export const validate = (config: Record<string, unknown>) => {

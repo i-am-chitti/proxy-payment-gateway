@@ -14,7 +14,7 @@ export class UsersController {
 
   @Post('api-key')
   async generateApiKey(@Request() req) {
-    const user = await this.usersService.findOneByEmail(req.user.email);
+    const user = await this.usersService.findOneByEmail(req.currentUser.email);
     if (!user) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }
@@ -28,7 +28,7 @@ export class UsersController {
 
   @Get('api-key')
   async getApiKey(@Request() req) {
-    const user = await this.usersService.findOneByEmail(req.user.email);
+    const user = await this.usersService.findOneByEmail(req.currentUser.email);
     if (!user) {
       throw new HttpException('User not found', HttpStatus.NOT_FOUND);
     }

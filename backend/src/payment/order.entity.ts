@@ -56,4 +56,12 @@ export class Order {
     nullable: true,
   })
   qrCodeId: string;
+
+  @Column({
+    nullable: true,
+  })
+  qrString: string;
+
+  @Column()
+  gateway: string;
 }
